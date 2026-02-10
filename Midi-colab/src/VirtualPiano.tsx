@@ -2,13 +2,16 @@ import React, { useCallback, useRef } from 'react';
 import { WebContainerEngine } from './lib/midi-colab/web-container-engine';
 import type { ContainerInput } from './lib/midi-colab/types';
 
+type SoundType = 'piano' | 'electric-guitar' | 'sax' | 'synth' | 'hard-synth' | 'synth-bass';
+
 interface VirtualPianoProps {
   engine: WebContainerEngine;
   networkActiveKeys?: Set<number>;
   onProcessed?: (output: any) => void;
+  soundType?: SoundType;
 }
 
-export const VirtualPiano: React.FC<VirtualPianoProps> = ({ engine, networkActiveKeys = new Set(), onProcessed }) => {
+export const VirtualPiano: React.FC<VirtualPianoProps> = ({ engine, networkActiveKeys = new Set(), onProcessed, soundType = 'piano' }) => {
   console.log('VirtualPiano: rendering with networkActiveKeys:', Array.from(networkActiveKeys));
   const audioContextRef = useRef<AudioContext | null>(null);
   const [activeKeys, setActiveKeys] = React.useState<Set<number>>(new Set());
@@ -25,23 +28,216 @@ export const VirtualPiano: React.FC<VirtualPianoProps> = ({ engine, networkActiv
 
   const playTone = useCallback(async (midiNote: number, duration: number = 0.5) => {
     const audioContext = await getAudioContext();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    const masterGain = audioContext.createGain();
+    masterGain.connect(audioContext.destination);
 
     const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
+    const now = audioContext.currentTime;
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    // Create ADSR envelope
+    const createEnvelope = (attack = 0.01, decay = 0.1, sustain = 0.3, release = 0.2) => {
+      const gainNode = audioContext.createGain();
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(1, now + attack);
+      gainNode.gain.exponentialRampToValueAtTime(sustain, now + attack + decay);
+      gainNode.gain.setValueAtTime(sustain, now + duration - release);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
+      return gainNode;
+    };
 
-    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-    oscillator.type = 'sine';
+    switch (soundType) {
+      case 'piano': {
+        // Piano: Multiple harmonics with quick attack
+        const fundamental = audioContext.createOscillator();
+        const octave = audioContext.createOscillator();
+        const fifth = audioContext.createOscillator();
 
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+        const envelope = createEnvelope(0.005, 0.1, 0.1, 0.3);
 
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + duration);
-  }, [getAudioContext]);
+        fundamental.frequency.setValueAtTime(frequency, now);
+        fundamental.type = 'sine';
+
+        octave.frequency.setValueAtTime(frequency * 2, now);
+        octave.type = 'sine';
+
+        fifth.frequency.setValueAtTime(frequency * 1.5, now);
+        fifth.type = 'triangle';
+
+        fundamental.connect(envelope);
+        octave.connect(envelope);
+        fifth.connect(envelope);
+        envelope.connect(masterGain);
+
+        envelope.gain.setValueAtTime(0, now);
+        envelope.gain.linearRampToValueAtTime(0.4, now + 0.005);
+        envelope.gain.exponentialRampToValueAtTime(0.05, now + 0.1);
+        envelope.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+        fundamental.start(now);
+        octave.start(now);
+        fifth.start(now);
+        fundamental.stop(now + duration);
+        octave.stop(now + duration);
+        fifth.stop(now + duration);
+        break;
+      }
+
+      case 'electric-guitar': {
+        // Guitar: Distorted sawtooth with filter sweep
+        const osc = audioContext.createOscillator();
+        const filter = audioContext.createBiquadFilter();
+        const envelope = createEnvelope(0.001, 0.05, 0.3, 0.1);
+
+        osc.frequency.setValueAtTime(frequency, now);
+        osc.type = 'sawtooth';
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(200, now);
+        filter.frequency.linearRampToValueAtTime(2000, now + 0.1);
+        filter.Q.setValueAtTime(2, now);
+
+        osc.connect(filter);
+        filter.connect(envelope);
+        envelope.connect(masterGain);
+
+        osc.start(now);
+        osc.stop(now + duration);
+        break;
+      }
+
+      case 'sax': {
+        // Sax: Warm, breathy tone with vibrato
+        const osc = audioContext.createOscillator();
+        const lfo = audioContext.createOscillator();
+        const lfoGain = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
+        const envelope = createEnvelope(0.05, 0.2, 0.4, 0.3);
+
+        osc.frequency.setValueAtTime(frequency, now);
+        osc.type = 'sawtooth';
+
+        lfo.frequency.setValueAtTime(5, now); // Vibrato
+        lfoGain.gain.setValueAtTime(10, now); // Vibrato depth
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1000, now);
+        filter.Q.setValueAtTime(1, now);
+
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc.frequency);
+        osc.connect(filter);
+        filter.connect(envelope);
+        envelope.connect(masterGain);
+
+        osc.start(now);
+        lfo.start(now);
+        osc.stop(now + duration);
+        lfo.stop(now + duration);
+        break;
+      }
+
+      case 'synth': {
+        // Synth: Rich pad sound with chorus effect
+        const osc1 = audioContext.createOscillator();
+        const osc2 = audioContext.createOscillator();
+        const lfo = audioContext.createOscillator();
+        const lfoGain = audioContext.createGain();
+        const envelope = createEnvelope(0.1, 0.2, 0.6, 0.4);
+
+        osc1.frequency.setValueAtTime(frequency, now);
+        osc1.type = 'triangle';
+
+        osc2.frequency.setValueAtTime(frequency * 1.01, now); // Slight detune
+        osc2.type = 'triangle';
+
+        lfo.frequency.setValueAtTime(0.5, now); // Slow chorus
+        lfoGain.gain.setValueAtTime(5, now);
+
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc1.frequency);
+        lfoGain.connect(osc2.frequency);
+
+        osc1.connect(envelope);
+        osc2.connect(envelope);
+        envelope.connect(masterGain);
+
+        osc1.start(now);
+        osc2.start(now);
+        lfo.start(now);
+        osc1.stop(now + duration);
+        osc2.stop(now + duration);
+        lfo.stop(now + duration);
+        break;
+      }
+
+      case 'hard-synth': {
+        // Hard Synth: Aggressive square wave with filter
+        const osc = audioContext.createOscillator();
+        const subOsc = audioContext.createOscillator();
+        const filter = audioContext.createBiquadFilter();
+        const envelope = createEnvelope(0.001, 0.05, 0.8, 0.1);
+
+        osc.frequency.setValueAtTime(frequency, now);
+        osc.type = 'square';
+
+        subOsc.frequency.setValueAtTime(frequency * 0.5, now);
+        subOsc.type = 'square';
+
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(200, now);
+        filter.frequency.linearRampToValueAtTime(800, now + 0.2);
+
+        osc.connect(filter);
+        subOsc.connect(filter);
+        filter.connect(envelope);
+        envelope.connect(masterGain);
+
+        osc.start(now);
+        subOsc.start(now);
+        osc.stop(now + duration);
+        subOsc.stop(now + duration);
+        break;
+      }
+
+      case 'synth-bass': {
+        // Synth Bass: Deep sub-bass with harmonics
+        const osc = audioContext.createOscillator();
+        const subOsc = audioContext.createOscillator();
+        const envelope = createEnvelope(0.005, 0.1, 0.9, 0.2);
+
+        osc.frequency.setValueAtTime(frequency, now);
+        osc.type = 'sawtooth';
+
+        subOsc.frequency.setValueAtTime(frequency * 0.25, now); // Deep sub
+        subOsc.type = 'sine';
+
+        osc.connect(envelope);
+        subOsc.connect(envelope);
+        envelope.connect(masterGain);
+
+        osc.start(now);
+        subOsc.start(now);
+        osc.stop(now + duration);
+        subOsc.stop(now + duration);
+        break;
+      }
+
+      default: {
+        // Simple sine wave fallback
+        const osc = audioContext.createOscillator();
+        const envelope = createEnvelope();
+
+        osc.frequency.setValueAtTime(frequency, now);
+        osc.type = 'sine';
+
+        osc.connect(envelope);
+        envelope.connect(masterGain);
+
+        osc.start(now);
+        osc.stop(now + duration);
+      }
+    }
+  }, [getAudioContext, soundType]);
 
   const NOTES = [
     // Extended range: C3 to C6
