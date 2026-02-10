@@ -1,17 +1,15 @@
 import React, { useCallback, useRef } from 'react';
-import { WebContainerEngine } from './lib/midi-colab/web-container-engine';
-import type { ContainerInput } from './lib/midi-colab/types';
+
 
 type SoundType = 'piano' | 'electric-guitar' | 'sax' | 'synth' | 'hard-synth' | 'synth-bass';
 
 interface VirtualPianoProps {
-  engine: WebContainerEngine;
   networkActiveKeys?: Set<number>;
   onProcessed?: (output: any) => void;
   soundType?: SoundType;
 }
 
-export const VirtualPiano: React.FC<VirtualPianoProps> = React.memo(({ engine, networkActiveKeys = new Set(), onProcessed, soundType = 'piano' }) => {
+export const VirtualPiano: React.FC<VirtualPianoProps> = React.memo(({ networkActiveKeys = new Set(), onProcessed, soundType = 'piano' }) => {
   console.log('VirtualPiano: rendering with networkActiveKeys:', Array.from(networkActiveKeys));
   const audioContextRef = useRef<AudioContext | null>(null);
   const [activeKeys, setActiveKeys] = React.useState<Set<number>>(new Set());
@@ -286,34 +284,24 @@ export const VirtualPiano: React.FC<VirtualPianoProps> = React.memo(({ engine, n
     playTone(midiNote);
 
     try {
-      // Skip WebContainer processing for now - go direct for speed
-      const processedData = {
+      // Zero-latency direct MIDI broadcast - no processing whatsoever
+      const midiData = {
         type: 'noteon',
         data: [midiNote, velocity],
-        theory: { note: `Note ${midiNote}`, lovely: true }
+        timestamp: Date.now()
       };
 
-      console.log('VirtualPiano: direct processing, output:', processedData);
-      onProcessed?.({ processed: [processedData] });
+      // Direct broadcast without any console logging for max speed
+      onProcessed?.({ processed: [midiData] });
 
       // Note off after 200ms for snappy feel
-      setTimeout(async () => {
-        console.log('VirtualPiano: clearing local active key:', midiNote);
+      setTimeout(() => {
         // Remove from active keys
         setActiveKeys(prev => {
           const newSet = new Set(prev);
           newSet.delete(midiNote);
           return newSet;
         });
-
-        const offInput: ContainerInput = {
-          type: 'midi',
-          data: {
-            type: 'noteoff',
-            data: [midiNote, 0]
-          }
-        };
-        await engine.process(offInput);
       }, 200);
     } catch (error) {
       console.error('Failed to process MIDI:', error);
@@ -324,7 +312,7 @@ export const VirtualPiano: React.FC<VirtualPianoProps> = React.memo(({ engine, n
         return newSet;
       });
     }
-  }, [engine, onProcessed, playTone]);
+  }, [onProcessed, playTone]);
 
   return (
     <div className="virtual-piano-container">

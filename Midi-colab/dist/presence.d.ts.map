@@ -1,0 +1,1 @@
+{"version":3,"file":"presence.d.ts","sourceRoot":"","sources":["../src/lib/midi-colab/presence.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,IAAI,EAAE,sBAAsB,EAAE,MAAM,SAAS,CAAC;AAE5D,qBAAa,eAAe;IAC1B,OAAO,CAAC,QAAQ,CAAoB;gBAExB,aAAa,EAAE,GAAG;IAI9B,aAAa,CAAC,IAAI,EAAE,IAAI;IAMxB,cAAc,IAAI,IAAI,EAAE;IAOxB,QAAQ,CAAC,EAAE,EAAE,sBAAsB;IASnC,iBAAiB,IAAI,GAAG;CAGzB"}

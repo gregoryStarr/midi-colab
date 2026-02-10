@@ -51,20 +51,7 @@ function App(): JSX.Element {
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + duration);
   }, [getAudioContext]);
-  const [script] = useState(`(async () => {
-try {
-  const fs = await import('fs/promises');
-  const inputStr = await fs.readFile('input.json', 'utf8');
-  const input = JSON.parse(inputStr);
-
-  // Ultra-fast processing - just pass through the note
-  const processed = [input.data];
-
-  console.log(JSON.stringify({ processed }));
-} catch (err) {
-  console.log(JSON.stringify({ errors: [err.message] }));
-}
-})();`);
+  // No script needed - direct MIDI broadcasting
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -581,7 +568,6 @@ try {
                 </div>
 
                 <VirtualPiano
-                  engine={engine}
                   networkActiveKeys={networkActiveKeys}
                   soundType={soundType}
                   onProcessed={async (output) => {
@@ -624,7 +610,6 @@ try {
               {/* Engine Start Button */}
               <div className="mb-8">
                 <WebContainerStarter
-                  script={script}
                   onStarted={() => setIsWebContainerStarted(true)}
                   onError={(error: string) => setLogs(prev => [...prev, `WebContainer error: ${error}`])}
                 />

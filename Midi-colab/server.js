@@ -22,8 +22,21 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (message) => {
     try {
       // Log message size and type for debugging
-      const msgSize = message.length;
-      console.log(`📨 [${new Date().toISOString()}] Message received (${msgSize} bytes) from ${ip}`);
+      let msgSize = 'unknown';
+      let msgType = 'unknown';
+
+      if (typeof message === 'string') {
+        msgSize = message.length;
+        msgType = 'text';
+      } else if (message instanceof ArrayBuffer) {
+        msgSize = message.byteLength;
+        msgType = 'binary';
+      } else if (message instanceof Buffer) {
+        msgSize = message.length;
+        msgType = 'buffer';
+      }
+
+      console.log(`📨 [${new Date().toISOString()}] ${msgType} message received (${msgSize} bytes) from ${ip}`);
 
       // Try to parse as JSON for more detailed logging
       try {
