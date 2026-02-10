@@ -20,7 +20,21 @@ function App(): JSX.Element {
   const [isWebContainerStarted, setIsWebContainerStarted] = useState(false);
   const [networkActiveKeys, setNetworkActiveKeys] = useState<Set<number>>(new Set());
   const [soundType, setSoundType] = useState<SoundType>('piano');
+  const [volume, setVolume] = useState<number>(0.7);
+  const [showSidebar, setShowSidebar] = useState<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Global audio unlock function
+  const unlockAudio = useCallback(async () => {
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      try {
+        await audioContextRef.current.resume();
+        console.log('App: Audio context unlocked');
+      } catch (error) {
+        console.error('App: Failed to unlock audio context:', error);
+      }
+    }
+  }, []);
 
   const getAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
@@ -171,7 +185,25 @@ function App(): JSX.Element {
     };
   }, [isWebContainerStarted]);
 
+  // Audio unlock on user interaction
+  useEffect(() => {
+    const unlockHandler = async () => {
+      await unlockAudio();
+    };
 
+    document.addEventListener('click', unlockHandler);
+    document.addEventListener('touchstart', unlockHandler);
+    document.addEventListener('keydown', unlockHandler);
+
+    // Try to unlock immediately
+    unlockAudio();
+
+    return () => {
+      document.removeEventListener('click', unlockHandler);
+      document.removeEventListener('touchstart', unlockHandler);
+      document.removeEventListener('keydown', unlockHandler);
+    };
+  }, [unlockAudio]);
 
   return (
     <div className="h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col overflow-hidden" style={{ fontFamily: "'Poppins', sans-serif" }}>
@@ -257,6 +289,32 @@ function App(): JSX.Element {
           @keyframes shimmer {
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
+          }
+
+          .slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          }
+
+          .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 8px rgba(139, 92, 246, 0.4);
+          }
+
+          .slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
           }
 
           .sidebar-transition {
@@ -478,7 +536,11 @@ function App(): JSX.Element {
       }} />
 
       {/* Header */}
-      <Header isConnected={isConnected} isWebContainerStarted={isWebContainerStarted} />
+      <Header
+        isConnected={isConnected}
+        isWebContainerStarted={isWebContainerStarted}
+        audioContextState={audioContextRef.current?.state}
+      />
 
       {/* Main Content - Piano Centric Layout */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -503,36 +565,188 @@ function App(): JSX.Element {
               <div className={`w-2 h-2 rounded-full animate-pulse ${isWebContainerStarted ? 'bg-blue-400' : 'bg-yellow-400'}`}></div>
               <span>{isWebContainerStarted ? 'Ready' : 'Starting'}</span>
             </div>
+
+            <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl text-xs font-semibold glass-card transition-all duration-300 ${
+              audioContextRef.current?.state === 'running'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+            }`}>
+              <div className={`w-2 h-2 rounded-full animate-pulse ${
+                audioContextRef.current?.state === 'running' ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}></div>
+              <span>Audio {audioContextRef.current?.state === 'running' ? 'Active' : 'Locked'}</span>
+            </div>
           </div>
 
-          {/* Minimal Controls */}
-          <div className="flex items-center space-x-2">
-            {/* Sound Type Selector - Compact */}
-            <select
-              value={soundType}
-              onChange={(e) => setSoundType(e.target.value as SoundType)}
-              className="px-3 py-1.5 text-sm bg-black/40 backdrop-blur-md border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="piano">🎹 Piano</option>
-              <option value="electric-guitar">🎸 Guitar</option>
-              <option value="sax">🎷 Sax</option>
-              <option value="synth">🎛️ Synth</option>
-              <option value="hard-synth">⚡ Hard Synth</option>
-              <option value="synth-bass">🔊 Bass</option>
-            </select>
+          {/* Controls Cluster */}
+          <div className="flex items-center space-x-4">
+            {/* Sound Type Radio Group */}
+            <div className="flex items-center space-x-1 bg-black/40 backdrop-blur-md border border-white/20 rounded-xl p-1">
+              <label className="flex items-center space-x-1 px-2 py-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/10">
+                <input
+                  type="radio"
+                  name="soundType"
+                  value="piano"
+                  checked={soundType === 'piano'}
+                  onChange={(e) => setSoundType(e.target.value as SoundType)}
+                  className="sr-only peer"
+                />
+                <span className={`text-xs ${soundType === 'piano' ? 'text-purple-300' : 'text-gray-400'} peer-checked:text-purple-300`}>🎹</span>
+              </label>
+
+              <label className="flex items-center space-x-1 px-2 py-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/10">
+                <input
+                  type="radio"
+                  name="soundType"
+                  value="electric-guitar"
+                  checked={soundType === 'electric-guitar'}
+                  onChange={(e) => setSoundType(e.target.value as SoundType)}
+                  className="sr-only peer"
+                />
+                <span className={`text-xs ${soundType === 'electric-guitar' ? 'text-purple-300' : 'text-gray-400'} peer-checked:text-purple-300`}>🎸</span>
+              </label>
+
+              <label className="flex items-center space-x-1 px-2 py-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/10">
+                <input
+                  type="radio"
+                  name="soundType"
+                  value="sax"
+                  checked={soundType === 'sax'}
+                  onChange={(e) => setSoundType(e.target.value as SoundType)}
+                  className="sr-only peer"
+                />
+                <span className={`text-xs ${soundType === 'sax' ? 'text-purple-300' : 'text-gray-400'} peer-checked:text-purple-300`}>🎷</span>
+              </label>
+
+              <label className="flex items-center space-x-1 px-2 py-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/10">
+                <input
+                  type="radio"
+                  name="soundType"
+                  value="synth"
+                  checked={soundType === 'synth'}
+                  onChange={(e) => setSoundType(e.target.value as SoundType)}
+                  className="sr-only peer"
+                />
+                <span className={`text-xs ${soundType === 'synth' ? 'text-purple-300' : 'text-gray-400'} peer-checked:text-purple-300`}>🎛️</span>
+              </label>
+
+              <label className="flex items-center space-x-1 px-2 py-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/10">
+                <input
+                  type="radio"
+                  name="soundType"
+                  value="hard-synth"
+                  checked={soundType === 'hard-synth'}
+                  onChange={(e) => setSoundType(e.target.value as SoundType)}
+                  className="sr-only peer"
+                />
+                <span className={`text-xs ${soundType === 'hard-synth' ? 'text-purple-300' : 'text-gray-400'} peer-checked:text-purple-300`}>⚡</span>
+              </label>
+
+              <label className="flex items-center space-x-1 px-2 py-1 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/10">
+                <input
+                  type="radio"
+                  name="soundType"
+                  value="synth-bass"
+                  checked={soundType === 'synth-bass'}
+                  onChange={(e) => setSoundType(e.target.value as SoundType)}
+                  className="sr-only peer"
+                />
+                <span className={`text-xs ${soundType === 'synth-bass' ? 'text-purple-300' : 'text-gray-400'} peer-checked:text-purple-300`}>🔊</span>
+              </label>
+            </div>
+
+            {/* Volume Control */}
+            <div className="flex items-center space-x-2 bg-black/40 backdrop-blur-md border border-white/20 rounded-xl px-3 py-2">
+              <span className="text-xs text-gray-400">🔊</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={volume}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+                className="w-16 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <span className="text-xs text-gray-400 w-6">{Math.round(volume * 100)}</span>
+            </div>
 
             {/* Test Sound Button */}
             <button
               onClick={() => playTone(60)}
-              className="px-3 py-1.5 text-sm bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-lg shadow-purple-500/20"
             >
-              🎵
+              <span className="text-sm">🎵 Test</span>
             </button>
           </div>
         </div>
 
+        {/* Sidebar Toggle */}
+        <button
+          onClick={() => setShowSidebar(!showSidebar)}
+          className="absolute top-20 left-4 z-40 w-10 h-10 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center transition-colors duration-200"
+          title={showSidebar ? 'Hide Sidebar' : 'Show Sidebar'}
+        >
+          <span className="text-slate-300 text-lg">{showSidebar ? '◁' : '▷'}</span>
+        </button>
+
+        {/* Collapsible Sidebar */}
+        {showSidebar && (
+          <div className="w-80 bg-slate-800 border-r border-slate-700 flex flex-col">
+            <div className="p-6 border-b border-slate-700">
+              <h3 className="text-lg font-semibold text-white mb-4">Session Info</h3>
+
+              {/* Session Stats */}
+              <div className="space-y-4">
+                <div className="bg-slate-700 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-300">Duration</span>
+                    <span className="text-white font-medium">12:34</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-700 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-300">Notes Played</span>
+                    <span className="text-white font-medium">247</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-700 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-300">Collaborators</span>
+                    <span className="text-white font-medium">{users.length}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 p-6">
+              <h4 className="text-md font-semibold text-white mb-4">Active Players</h4>
+              <div className="space-y-3">
+                {users.length === 0 ? (
+                  <div className="text-slate-400 text-sm">No other players online</div>
+                ) : (
+                  users.map((user) => (
+                    <div key={user.id} className="flex items-center space-x-3 bg-slate-700 rounded-lg p-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">
+                          {user.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-white font-medium text-sm">{user.name}</div>
+                        <div className="text-slate-400 text-xs">{user.status}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Main Piano Focus Area */}
-        <div className="flex-1 flex items-center justify-center p-8">
+        <div className={`flex-1 flex items-center justify-center p-8 transition-all duration-300 ${showSidebar ? 'ml-0' : ''}`}>
           {isWebContainerStarted ? (
             <div className="w-full max-w-6xl">
               {/* Piano with Enhanced Visual Feedback */}
@@ -570,6 +784,7 @@ function App(): JSX.Element {
                 <VirtualPiano
                   networkActiveKeys={networkActiveKeys}
                   soundType={soundType}
+                  volume={volume}
                   onProcessed={async (output) => {
                     if (output.processed) {
                       setLogs(prev => [...prev, `Processed: ${JSON.stringify(output.processed)}`]);

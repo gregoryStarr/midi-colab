@@ -7,9 +7,10 @@ interface VirtualPianoProps {
   networkActiveKeys?: Set<number>;
   onProcessed?: (output: any) => void;
   soundType?: SoundType;
+  volume?: number;
 }
 
-export const VirtualPiano: React.FC<VirtualPianoProps> = React.memo(({ networkActiveKeys = new Set(), onProcessed, soundType = 'piano' }) => {
+export const VirtualPiano: React.FC<VirtualPianoProps> = React.memo(({ networkActiveKeys = new Set(), onProcessed, soundType = 'piano', volume = 0.7 }) => {
   console.log('VirtualPiano: rendering with networkActiveKeys:', Array.from(networkActiveKeys));
   const audioContextRef = useRef<AudioContext | null>(null);
   const [activeKeys, setActiveKeys] = React.useState<Set<number>>(new Set());
@@ -17,20 +18,35 @@ export const VirtualPiano: React.FC<VirtualPianoProps> = React.memo(({ networkAc
   const getAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      console.log('VirtualPiano: Created new AudioContext, state:', audioContextRef.current.state);
     }
+
     if (audioContextRef.current.state === 'suspended') {
-      await audioContextRef.current.resume();
+      console.log('VirtualPiano: Resuming suspended AudioContext');
+      try {
+        await audioContextRef.current.resume();
+        console.log('VirtualPiano: AudioContext resumed successfully');
+      } catch (error) {
+        console.error('VirtualPiano: Failed to resume AudioContext:', error);
+      }
     }
+
+    console.log('VirtualPiano: AudioContext state:', audioContextRef.current.state);
     return audioContextRef.current;
   }, []);
 
   const playTone = useCallback(async (midiNote: number, duration: number = 0.5) => {
-    const audioContext = await getAudioContext();
-    const masterGain = audioContext.createGain();
-    masterGain.connect(audioContext.destination);
+    console.log('VirtualPiano: playTone called for midiNote:', midiNote, 'duration:', duration);
 
+    const audioContext = await getAudioContext();
     const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
     const now = audioContext.currentTime;
+
+    const masterGain = audioContext.createGain();
+    masterGain.gain.setValueAtTime(volume, now);
+    masterGain.connect(audioContext.destination);
+
+    console.log('VirtualPiano: Playing frequency:', frequency, 'Hz at time:', now);
 
     // Create ADSR envelope
     const createEnvelope = (attack = 0.01, decay = 0.1, sustain = 0.3, release = 0.2) => {
