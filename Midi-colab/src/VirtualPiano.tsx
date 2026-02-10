@@ -11,7 +11,7 @@ interface VirtualPianoProps {
   soundType?: SoundType;
 }
 
-export const VirtualPiano: React.FC<VirtualPianoProps> = ({ engine, networkActiveKeys = new Set(), onProcessed, soundType = 'piano' }) => {
+export const VirtualPiano: React.FC<VirtualPianoProps> = React.memo(({ engine, networkActiveKeys = new Set(), onProcessed, soundType = 'piano' }) => {
   console.log('VirtualPiano: rendering with networkActiveKeys:', Array.from(networkActiveKeys));
   const audioContextRef = useRef<AudioContext | null>(null);
   const [activeKeys, setActiveKeys] = React.useState<Set<number>>(new Set());
@@ -327,57 +327,144 @@ export const VirtualPiano: React.FC<VirtualPianoProps> = ({ engine, networkActiv
   }, [engine, onProcessed, playTone]);
 
   return (
-    <div style={{
-      position: 'fixed',
-      right: '0px',
-      top: '50%',
-      transform: 'translateY(-50%) translateX(300px) rotate(90deg)',
-      display: 'flex',
-      height: '200px',
-      background: '#f0f0f0',
-      border: '1px solid #ccc',
-      borderRadius: '10px',
-      padding: '10px',
-      boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-      zIndex: 1000
-    }}>
-      {NOTES.map((note) => (
+    <div className="virtual-piano-container">
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .virtual-piano-container {
+            position: fixed;
+            right: 0px;
+            top: 50%;
+            transform: translateY(-50%) translateX(300px) rotate(90deg);
+            display: flex;
+            height: 200px;
+            backdrop-filter: blur(16px);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow:
+              0 8px 32px rgba(0, 0, 0, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+          }
+
+          @media (max-width: 768px) {
+            .virtual-piano-container {
+              transform: translateY(-50%) translateX(150px) rotate(0deg) scale(0.7);
+              right: 10px;
+              top: 70%;
+            }
+          }
+
+          .piano-key {
+            position: relative;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 5px;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 0 0 8px 8px;
+          }
+
+          .piano-key-white {
+            width: 35px;
+            height: 200px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(248,250,252,0.8));
+            border: 1px solid rgba(226,232,240,0.5);
+            color: #1e293b;
+            z-index: 1;
+            box-shadow:
+              0 2px 4px rgba(0, 0, 0, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.2);
+          }
+
+          .piano-key-white:hover {
+            background: linear-gradient(135deg, rgba(241,245,249,0.9), rgba(226,232,240,0.8));
+            transform: translateY(-2px);
+            box-shadow:
+              0 4px 8px rgba(0, 0, 0, 0.15),
+              inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          }
+
+          .piano-key-white.active {
+            background: linear-gradient(135deg, rgba(59,130,246,0.8), rgba(37,99,235,0.6));
+            transform: translateY(0);
+            box-shadow:
+              inset 0 2px 4px rgba(0, 0, 0, 0.2),
+              0 0 20px rgba(59,130,246, 0.4);
+            animation: key-press 0.15s ease-out;
+          }
+
+          .piano-key-black {
+            position: absolute;
+            width: 25px;
+            height: 120px;
+            background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.8));
+            border: 1px solid rgba(51,65,85,0.5);
+            color: #f1f5f9;
+            z-index: 2;
+            border-radius: 0 0 6px 6px;
+            box-shadow:
+              0 2px 4px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          }
+
+          .piano-key-black:hover {
+            background: linear-gradient(135deg, rgba(51,65,85,0.9), rgba(30,41,59,0.8));
+            transform: translateY(-1px);
+            box-shadow:
+              0 4px 8px rgba(0, 0, 0, 0.4),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+          }
+
+          .piano-key-black.active {
+            background: linear-gradient(135deg, rgba(245,158,11,0.8), rgba(217,119,6,0.6));
+            transform: translateY(0);
+            box-shadow:
+              inset 0 2px 4px rgba(0, 0, 0, 0.4),
+              0 0 20px rgba(245,158,11, 0.4);
+            animation: key-press 0.15s ease-out;
+          }
+
+          @keyframes key-press {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+          }
+
+          @media (max-width: 768px) {
+            .piano-key-white, .piano-key-black {
+              width: 25px;
+              font-size: 8px;
+            }
+            .piano-key-black {
+              width: 18px;
+            }
+          }
+        `
+      }} />
+      {NOTES.map((note, index) => (
         <button
           key={note.note}
           onClick={() => playNote(note.midi)}
+          className={`piano-key ${note.type === 'black' ? 'piano-key-black' : 'piano-key-white'} ${
+            (activeKeys.has(note.midi) || networkActiveKeys.has(note.midi)) ? 'active' : ''
+          }`}
           style={{
             position: note.type === 'black' ? 'absolute' : 'relative',
-            left: note.type === 'black' ? `${(NOTES.indexOf(note) - 0.5) * 35}px` : 'auto',
-            width: note.type === 'black' ? '25px' : '35px',
-            height: note.type === 'black' ? '120px' : '200px',
-            background: (activeKeys.has(note.midi) || networkActiveKeys.has(note.midi))
-              ? `linear-gradient(to top, #C77B8B, transparent), ${note.type === 'black' ? '#222' : '#fff'}`
-              : note.type === 'black' ? '#222' : '#fff',
-            color: note.type === 'black' ? '#fff' : '#000',
-            border: note.type === 'black' ? '1px solid #000' : '2px solid #000',
-            borderRadius: note.type === 'black' ? '0 0 5px 5px' : '0 0 8px 8px',
-            cursor: 'pointer',
-            zIndex: note.type === 'black' ? 2 : 1,
-            fontSize: '10px',
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            paddingBottom: '5px',
-            transition: 'all 0.1s ease',
-            boxShadow: note.type === 'black' ? 'inset 0 2px 4px rgba(255,255,255,0.1)' : '0 2px 4px rgba(0,0,0,0.2)',
+            left: note.type === 'black' ? `${(index - 0.5) * 35}px` : 'auto',
           }}
-          onMouseDown={(e) => {
-            e.currentTarget.style.transform = 'scale(0.95)';
-            e.currentTarget.style.boxShadow = note.type === 'black' ? 'inset 0 1px 2px rgba(255,255,255,0.2)' : '0 1px 2px rgba(0,0,0,0.1)';
-          }}
-          onMouseUp={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = note.type === 'black' ? 'inset 0 2px 4px rgba(255,255,255,0.1)' : '0 2px 4px rgba(0,0,0,0.2)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = note.type === 'black' ? 'inset 0 2px 4px rgba(255,255,255,0.1)' : '0 2px 4px rgba(0,0,0,0.2)';
+          aria-label={`Play ${note.note} note`}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              playNote(note.midi);
+            }
           }}
         >
           {note.note}
@@ -385,4 +472,4 @@ export const VirtualPiano: React.FC<VirtualPianoProps> = ({ engine, networkActiv
       ))}
     </div>
   );
-};
+});
