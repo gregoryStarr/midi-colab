@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { WebContainerEngine } from './lib/midi-colab/web-container-engine';
 
 interface WebContainerStarterProps {
+  script?: string;
   onStarted?: () => void;
   onError?: (error: string) => void;
 }
 
-export const WebContainerStarter: React.FC<WebContainerStarterProps> = ({ onStarted, onError }) => {
+export const WebContainerStarter: React.FC<WebContainerStarterProps> = ({ script, onStarted, onError }) => {
   const [isStarting, setIsStarting] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
 
@@ -17,6 +18,9 @@ export const WebContainerStarter: React.FC<WebContainerStarterProps> = ({ onStar
     try {
       const engine = WebContainerEngine.getInstance();
       await engine.start();
+      if (script) {
+        await engine.loadScript({ code: script });
+      }
       setIsStarted(true);
       onStarted?.();
     } catch (error: any) {

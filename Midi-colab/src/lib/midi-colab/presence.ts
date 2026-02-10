@@ -3,7 +3,9 @@ import type { User, PresenceUpdateCallback } from './types';
 export class PresenceManager {
   private provider: any | null = null;
 
-  constructor() {}
+  constructor(networkClient: any) {
+    this.provider = networkClient.getProvider();
+  }
 
   setLocalState(user: User) {
     if (this.provider) {

@@ -19,7 +19,7 @@
     "build:demo": "vite build --config vite.demo.ts",
     "preview": "vite preview --config vite.demo.ts",
     "typecheck": "tsc --noEmit",
-    "server": "npx y-websocket -p 1234"
+    "server": "node server.js"
   },
   "keywords": [
     "midi",

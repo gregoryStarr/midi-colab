@@ -23,22 +23,18 @@ export class WebContainerEngine {
     // Prevent multiple starts per page session
     if ((window as any).webContainerStarted) return;
 
-    // Check if WebContainer is already instantiated
-    if ((WebContainer as any)._instance) {
-      throw new Error('Only a single WebContainer instance can be booted');
-    }
-
     this.webcontainer = await WebContainer.boot();
     await this.webcontainer.mount({
       'package.json': {
-        file: {
-          contents: JSON.stringify({
-            name: 'midi-processor',
-            dependencies: {
-              tonal: '^5.0.0'
-            }
-          }, null, 2)
-        }
+         file: {
+           contents: JSON.stringify({
+             name: 'midi-processor',
+             type: 'module',
+             dependencies: {
+               tonal: '^5.0.0'
+             }
+           }, null, 2)
+         }
       },
       'scripts': {
         directory: {}

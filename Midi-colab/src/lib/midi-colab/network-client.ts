@@ -34,6 +34,10 @@ export class NetworkClient {
     this.provider = null;
   }
 
+  getProvider() {
+    return this.provider;
+  }
+
   setLocalUser(user: User) {
     if (this.provider) {
       this.provider.awareness.setLocalState(user);
@@ -72,7 +76,7 @@ export class NetworkClient {
   }
 
   getLogs() {
-    return this.logs.toArray();
+    return this.ydoc.getMap('broadcast');
   }
 
   pipeToContainer(input: ContainerInput) {

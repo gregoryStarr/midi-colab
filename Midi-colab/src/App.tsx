@@ -17,8 +17,9 @@ function App(): JSX.Element {
   const [users, setUsers] = useState<User[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [isWebContainerStarted, setIsWebContainerStarted] = useState(false);
+  const [networkActiveKeys, setNetworkActiveKeys] = useState<Set<number>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
-  const initialScript = 'console.log("ok")';
+  const initialScript = `process.stdout.write(JSON.stringify({ processed: [{ type: 'noteon', data: [60, 127], theory: { note: 'C4', chord: 'test', harmony: 'C4 E4 G4' } }] }));`;
 
   const getAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
@@ -49,7 +50,41 @@ function App(): JSX.Element {
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + duration);
   }, [getAudioContext]);
-  const [script, setScript] = useState(`console.log("ok")`);
+  const [script, setScript] = useState(`(async () => {
+try {
+  const fs = await import('fs/promises');
+  const inputStr = await fs.readFile('input.json', 'utf8');
+  const input = JSON.parse(inputStr);
+
+  const { type, data } = input.data;
+  let processed = [input.data];
+
+  if (type === 'noteon' && data && data[0]) {
+    const midi = data[0];
+    const velocity = data[1] || 127;
+
+    // MIDI to note conversion for lovely display
+    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const octave = Math.floor(midi / 12) - 1;
+    const noteName = notes[midi % 12];
+    const note = noteName + octave;
+
+    // Just play the original note with lovely metadata
+    processed[0] = {
+      ...processed[0],
+      theory: {
+        note,
+        lovely: true,
+        message: '🎵 Beautiful sound! 🎵'
+      }
+    };
+  }
+
+  console.log(JSON.stringify({ processed }));
+} catch (err) {
+  console.log(JSON.stringify({ errors: [err.message] }));
+}
+})();`);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -88,33 +123,60 @@ function App(): JSX.Element {
 
         // Pipe MIDI to engine for processing
         brid.pipeToContainer(engine, (out) => {
-          console.log('Container output:', out);
+          console.log('App: pipeToContainer received output:', out);
           if (out.processed && network) {
+            console.log('App: playing local sounds for processed events');
             // Play sound for local MIDI
             out.processed.forEach((event: any) => {
               if (event.type === 'noteon' && event.data) {
+                console.log('App: playing tone for midi:', event.data[0]);
                 playTone(event.data[0]);
               }
             });
-            network.broadcastProcessed({ type: 'midi', data: out.processed } as ContainerInput);
+            console.log('App: broadcasting processed data');
+            network.broadcastRaw({ type: 'midi', data: out.processed } as any);
             setLogs(prev => [...prev, `Processed: ${JSON.stringify(out.processed)}`]);
           }
           if (out.errors?.length) {
+            console.log('App: processing errors:', out.errors);
             setLogs(prev => [...prev, `Error: ${out.errors.join(', ')}`]);
           }
         });
 
         // Listen to network logs/broadcasts
-        const offLogs = net.getLogs().forEach((log: any) => {
-          setLogs(prev => [...prev, `Network: ${JSON.stringify(log)}`]);
-          // Play sound for received MIDI
-          if (log.type === 'midi' && log.data) {
-            log.data.forEach((event: any) => {
-              if (event.type === 'noteon' && event.data) {
-                playTone(event.data[0]);
+        const processedMap = net.getLogs() as any;
+        console.log('App: setting up network observe on processedMap');
+        const offLogs = processedMap.observe((event: any) => {
+          console.log('App: network observe triggered with event:', event);
+          event.changes.keys.forEach((change: any, key: any) => {
+            console.log('App: processing change:', change.action, 'for key:', key);
+            if (change.action === 'add') {
+              const log = processedMap.get(key);
+              console.log('App: received network log:', log);
+              setLogs(prev => [...prev, `Network: ${JSON.stringify(log)}`]);
+              // Play sound for received MIDI and light up keys
+              if (log.type === 'midi' && log.data) {
+                console.log('App: processing network MIDI data');
+                const activeNotes = new Set<number>();
+                log.data.forEach((event: any) => {
+                  if (event.type === 'noteon' && event.data) {
+                    console.log('App: playing network tone for midi:', event.data[0]);
+                    playTone(event.data[0]);
+                    activeNotes.add(event.data[0]);
+                  }
+                });
+                if (activeNotes.size > 0) {
+                  console.log('App: setting network active keys:', Array.from(activeNotes));
+                  setNetworkActiveKeys(activeNotes);
+                  // Clear after 500ms
+                  setTimeout(() => {
+                    console.log('App: clearing network active keys');
+                    setNetworkActiveKeys(new Set());
+                  }, 500);
+                }
               }
-            });
-          }
+            }
+          });
         });
 
         // Connection status
@@ -158,6 +220,7 @@ function App(): JSX.Element {
       <p>Status: {isConnected ? 'Connected' : 'Disconnected'} | Engine: {isWebContainerStarted ? 'Ready' : 'Not Started'}</p>
 
       <WebContainerStarter
+        script={script}
         onStarted={() => setIsWebContainerStarted(true)}
         onError={(error) => setLogs(prev => [...prev, `WebContainer error: ${error}`])}
       />
@@ -216,12 +279,41 @@ function App(): JSX.Element {
 
       {isWebContainerStarted && (
         <section>
+          <h2>Collaboration Test</h2>
+          <div style={{ fontFamily: 'monospace', padding: '10px', background: '#f5f5f5', borderRadius: '5px' }}>
+            <div>Network Active Keys: {Array.from(networkActiveKeys).map(midi => {
+              const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+              const octave = Math.floor(midi / 12) - 1;
+              return notes[midi % 12] + octave;
+            }).join(', ')}</div>
+            <div style={{ marginTop: '10px', color: '#666' }}>
+              Play piano keys - this should update when other users play!
+            </div>
+          </div>
+        </section>
+      )}
+
+      {isWebContainerStarted && (
+        <section>
           <h2>Virtual Piano</h2>
           <VirtualPiano
             engine={engine}
-            onProcessed={(output) => {
+            networkActiveKeys={networkActiveKeys}
+            onProcessed={async (output) => {
               if (output.processed) {
                 setLogs(prev => [...prev, `Processed: ${JSON.stringify(output.processed)}`]);
+                // Broadcast processed MIDI to network
+                if (network) {
+                  try {
+                    network.broadcastRaw({
+                      type: 'midi',
+                      data: output.processed
+                    });
+                    console.log('App: broadcast processed MIDI to network');
+                  } catch (err) {
+                    console.error('App: failed to broadcast processed MIDI:', err);
+                  }
+                }
               }
               if (output.errors?.length) {
                 setLogs(prev => [...prev, `Error: ${output.errors.join(', ')}`]);
