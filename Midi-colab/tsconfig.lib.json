@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist",
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src/lib/**/*"],
+  "exclude": ["src/lib/midi-colab/web-container-worker.ts"]
+}

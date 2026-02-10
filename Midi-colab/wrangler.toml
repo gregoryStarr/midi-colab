@@ -1,0 +1,14 @@
+name = "axial-cluster"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
+
+[[headers]]
+for = "/*"
+[headers.values]
+Cross-Origin-Embedder-Policy = "credentialless"
+Cross-Origin-Opener-Policy = "same-origin"
+Content-Security-Policy = "default-src 'self' 'unsafe-eval' 'unsafe-inline' data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com https://esm.sh https://*.stackblitz.com; worker-src 'self' blob:;"
+
+[build]
+command = "npm run build:demo"
+output_directory = "dist-demo"

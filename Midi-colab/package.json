@@ -1,0 +1,65 @@
+{
+  "name": "midi-colab",
+  "version": "0.1.0",
+  "description": "Modular MIDI Collaboration Library",
+  "main": "dist/midi-colab.umd.js",
+  "types": "dist/index.d.ts",
+  "module": "dist/midi-colab.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/midi-colab.es.js",
+      "require": "./dist/midi-colab.umd.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "dev": "vite --config vite.demo.ts",
+    "build": "tsc --project tsconfig.lib.json && npm run build:lib",
+    "build:lib": "vite build --config vite.lib.ts",
+    "build:demo": "vite build --config vite.demo.ts",
+    "preview": "vite preview --config vite.demo.ts",
+    "typecheck": "tsc --noEmit",
+    "server": "npx y-websocket -p 1234"
+  },
+  "keywords": [
+    "midi",
+    "collaboration",
+    "yjs",
+    "webmidi",
+    "webcontainer"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/midi-colab.git"
+  },
+  "homepage": "https://github.com/your-username/midi-colab#readme",
+  "bugs": {
+    "url": "https://github.com/your-username/midi-colab/issues"
+  },
+  "type": "module",
+  "dependencies": {
+    "@webcontainer/api": "^1.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "tonal": "^5.0.0",
+    "webmidi": "^3.0.0",
+    "y-websocket": "^1.5.0",
+    "yjs": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@types/webmidi": "^2.1.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "vitest": "^4.0.18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
