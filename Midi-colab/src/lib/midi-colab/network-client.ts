@@ -38,6 +38,23 @@ export class NetworkClient {
     return this.provider;
   }
 
+  onMidiEvent(callback: (midiData: any, clientId: number) => void) {
+    if (!this.provider) return () => {};
+
+    const awareness = this.provider.awareness;
+    const handler = (changes: any) => {
+      const states = awareness.getStates();
+      states.forEach((state: any, clientId: number) => {
+        if (state && state.currentMidi && clientId !== awareness.clientID) {
+          callback(state.currentMidi, clientId);
+        }
+      });
+    };
+
+    awareness.on('change', handler);
+    return () => awareness.off('change', handler);
+  }
+
   setLocalUser(user: User) {
     if (this.provider) {
       this.provider.awareness.setLocalState(user);
@@ -61,10 +78,15 @@ export class NetworkClient {
 
   broadcastRaw(input: ContainerInput) {
     if (this.provider) {
-      // Ephemeral broadcast via awareness or custom map
+      // Use Yjs map for reliable cross-tab broadcasting
       const broadcastMap = this.ydoc.getMap('broadcast');
-      broadcastMap.set(Date.now().toString(), input);
-      // Auto-clean old entries if needed
+      // Use client ID + timestamp for unique keys to avoid collisions
+      const clientId = this.provider.awareness.clientID || 'unknown';
+      const key = `${clientId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      console.log('NetworkClient: broadcasting MIDI via map with key:', key, 'data:', input);
+      broadcastMap.set(key, input);
+    } else {
+      console.log('NetworkClient: no provider, cannot broadcast');
     }
   }
 

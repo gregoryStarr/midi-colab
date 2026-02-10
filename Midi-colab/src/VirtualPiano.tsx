@@ -90,20 +90,17 @@ export const VirtualPiano: React.FC<VirtualPianoProps> = ({ engine, networkActiv
     playTone(midiNote);
 
     try {
-      const input: ContainerInput = {
-        type: 'midi',
-        data: {
-          type: 'noteon',
-          data: [midiNote, velocity]
-        }
+      // Skip WebContainer processing for now - go direct for speed
+      const processedData = {
+        type: 'noteon',
+        data: [midiNote, velocity],
+        theory: { note: `Note ${midiNote}`, lovely: true }
       };
 
-      console.log('VirtualPiano: calling engine.process with input:', input);
-      const output = await engine.process(input);
-      console.log('VirtualPiano: engine.process returned:', output);
-      onProcessed?.(output);
+      console.log('VirtualPiano: direct processing, output:', processedData);
+      onProcessed?.({ processed: [processedData] });
 
-      // Note off after 500ms
+      // Note off after 200ms for snappy feel
       setTimeout(async () => {
         console.log('VirtualPiano: clearing local active key:', midiNote);
         // Remove from active keys
@@ -121,7 +118,7 @@ export const VirtualPiano: React.FC<VirtualPianoProps> = ({ engine, networkActiv
           }
         };
         await engine.process(offInput);
-      }, 500);
+      }, 200);
     } catch (error) {
       console.error('Failed to process MIDI:', error);
       // Remove from active keys on error

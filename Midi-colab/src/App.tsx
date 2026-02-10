@@ -56,29 +56,8 @@ try {
   const inputStr = await fs.readFile('input.json', 'utf8');
   const input = JSON.parse(inputStr);
 
-  const { type, data } = input.data;
-  let processed = [input.data];
-
-  if (type === 'noteon' && data && data[0]) {
-    const midi = data[0];
-    const velocity = data[1] || 127;
-
-    // MIDI to note conversion for lovely display
-    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const octave = Math.floor(midi / 12) - 1;
-    const noteName = notes[midi % 12];
-    const note = noteName + octave;
-
-    // Just play the original note with lovely metadata
-    processed[0] = {
-      ...processed[0],
-      theory: {
-        note,
-        lovely: true,
-        message: '🎵 Beautiful sound! 🎵'
-      }
-    };
-  }
+  // Ultra-fast processing - just pass through the note
+  const processed = [input.data];
 
   console.log(JSON.stringify({ processed }));
 } catch (err) {
@@ -145,12 +124,13 @@ try {
 
         // Listen to network logs/broadcasts
         const processedMap = net.getLogs() as any;
-        console.log('App: setting up network observe on processedMap');
+        console.log('App: setting up network observe on processedMap, current size:', processedMap.size);
         const offLogs = processedMap.observe((event: any) => {
           console.log('App: network observe triggered with event:', event);
+          console.log('App: event.changes:', event.changes);
           event.changes.keys.forEach((change: any, key: any) => {
             console.log('App: processing change:', change.action, 'for key:', key);
-            if (change.action === 'add') {
+            if (change.action === 'add' || change.action === 'update') {
               const log = processedMap.get(key);
               console.log('App: received network log:', log);
               setLogs(prev => [...prev, `Network: ${JSON.stringify(log)}`]);
@@ -168,11 +148,11 @@ try {
                 if (activeNotes.size > 0) {
                   console.log('App: setting network active keys:', Array.from(activeNotes));
                   setNetworkActiveKeys(activeNotes);
-                  // Clear after 500ms
+                  // Clear after 200ms for snappy response
                   setTimeout(() => {
                     console.log('App: clearing network active keys');
                     setNetworkActiveKeys(new Set());
-                  }, 500);
+                  }, 200);
                 }
               }
             }
@@ -181,6 +161,7 @@ try {
 
         // Connection status
         net.provider?.on('status', (evt) => {
+          console.log('App: Yjs connection status changed to:', evt.status);
           setIsConnected(evt.status === 'connected');
         });
 
