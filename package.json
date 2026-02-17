@@ -19,7 +19,7 @@
     "build:demo": "vite build --config vite.demo.ts",
     "preview": "vite preview --config vite.demo.ts",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && vitest run --config vite.test.ts",
+    "test": "npm run typecheck && vitest run",
     "server": "node server.js"
   },
   "keywords": [
