@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { User } from "./lib/midi-colab/types";
 import { NetworkClient } from "./lib/midi-colab/network-client";
 import { WebContainerEngine } from "./lib/midi-colab/web-container-engine";
