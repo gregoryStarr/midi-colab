@@ -98,7 +98,7 @@ export class NetworkClient {
   getOnlineUsers(): User[] {
     if (!this.provider) return [];
     return Array.from(this.provider.awareness.getStates().values()).filter((state): state is User => 
-      state && typeof state === 'object' && 'id' in state
+      !!(state && typeof state === 'object' && 'id' in state)
     ) as User[];
   }
 

@@ -26,8 +26,8 @@ export class MidiBridge {
   async init(): Promise<void> {
     try {
       await WebMidi.enable();
-      WebMidi.addListener('connected', (e) => this.onDeviceConnected(e));
-      WebMidi.addListener('disconnected', (e) => this.onDeviceDisconnected(e));
+      WebMidi.addListener('connected', (e: any) => this.onDeviceConnected(e));
+      WebMidi.addListener('disconnected', (e: any) => this.onDeviceDisconnected(e));
       this.inputs = [...WebMidi.inputs];
       this.outputs = [...WebMidi.outputs];
       this.setupListeners();
@@ -56,7 +56,7 @@ export class MidiBridge {
   }
 
   private setupInputListener(input: Input) {
-    input.addListener('midimessage', (e) => {
+    input.addListener('midimessage', (e: any) => {
       const message = e.message;
       const event: MidiEvent = {
         type: this.getMessageType(message.data),

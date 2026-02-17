@@ -448,7 +448,7 @@ class M {
    */
   getOnlineUsers() {
     return this.provider ? Array.from(this.provider.awareness.getStates().values()).filter(
-      (e) => e && typeof e == "object" && "id" in e
+      (e) => !!(e && typeof e == "object" && "id" in e)
     ) : [];
   }
   /**
