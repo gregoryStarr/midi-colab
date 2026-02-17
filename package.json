@@ -7,9 +7,9 @@
   "module": "dist/midi-colab.es.js",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/midi-colab.es.js",
-      "require": "./dist/midi-colab.umd.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/midi-colab.umd.js"
     }
   },
   "scripts": {
@@ -19,6 +19,7 @@
     "build:demo": "vite build --config vite.demo.ts",
     "preview": "vite preview --config vite.demo.ts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "server": "node server.js"
   },
   "keywords": [

@@ -2,7 +2,13 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
-export default defineConfig({&#10;  server: {&#10;    host: true,&#10;    port: 5173,&#10;    strictPort: true,&#10;    https: false&#10;  },
+export default defineConfig({
+  server: {
+    host: true,
+    port: 5173,
+    strictPort: true,
+    https: false
+  },
   plugins: [react()],
   build: {
     lib: {
