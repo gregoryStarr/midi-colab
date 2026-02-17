@@ -1,4 +1,4 @@
-import type { ContainerInput, MidiEvent } from './types';
+import type { MidiEvent } from './types';
 
 // Worker message handling for MIDI interception and proxying
 interface WorkerMessage {
@@ -7,6 +7,13 @@ interface WorkerMessage {
   id?: string;
 }
 
+/**
+ * Worker for intercepting and buffering MIDI events.
+ * 
+ * The MidiInterceptorWorker runs in a separate thread to handle high-frequency
+ * MIDI data without blocking the main UI thread. It buffers incoming events
+ * and sends them in batches to the main thread for processing.
+ */
 class MidiInterceptorWorker {
   private midiStream: MidiEvent[] = [];
 
@@ -52,6 +59,9 @@ class MidiInterceptorWorker {
     };
   }
 
+  /**
+   * Flushes the buffered MIDI events to the main thread.
+   */
   private processMidiBatch(): void {
     if (this.midiStream.length > 0) {
       self.postMessage({

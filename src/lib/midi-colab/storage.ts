@@ -11,22 +11,47 @@ const STORES = {
   OFFLINE_QUEUE: 'offline_queue'
 } as const;
 
+/**
+ * Represents an operation queued for offline processing.
+ */
 interface OfflineOperation {
+  /** Unique ID of the operation. */
   id: string;
+  /** Type of operation: 'create', 'update', or 'delete'. */
   type: 'create' | 'update' | 'delete';
+  /** Name of the store (e.g., 'midi_logs', 'chat_history'). */
   store: string;
+  /** The data associated with the operation. */
   data: any;
+  /** Timestamp when the operation was queued. */
   timestamp: number;
 }
 
+/**
+ * Represents a file chunk stored in IndexedDB with a unique ID.
+ */
 interface StoredFileChunk extends FileChunk {
+  /** Unique ID for the stored chunk. */
   id: string;
 }
 
+/**
+ * Provides persistent local storage using IndexedDB.
+ * 
+ * The IndexedDBStorage class manages all local data persistence for the application,
+ * including MIDI logs, chat history, shared files, file chunks, and the offline operation queue.
+ * It follows the singleton pattern via the exported `storage` instance.
+ */
 class IndexedDBStorage {
   private db: IDBDatabase | null = null;
   private dbPromise: Promise<IDBDatabase> | null = null;
 
+  /**
+   * Opens a connection to the IndexedDB database.
+   * Handles database versioning and object store creation.
+   * 
+   * @returns A promise that resolves to the IDBDatabase instance.
+   */
   private async openDB(): Promise<IDBDatabase> {
     if (this.db) return this.db;
     if (this.dbPromise) return this.dbPromise;
@@ -85,6 +110,13 @@ class IndexedDBStorage {
     return this.db;
   }
 
+  /**
+   * Helper method to get an object store transaction.
+   * 
+   * @param storeName The name of the object store.
+   * @param mode The transaction mode ('readonly' or 'readwrite').
+   * @returns A promise resolving to the IDBObjectStore.
+   */
   private async getStore(storeName: string, mode: IDBTransactionMode = 'readonly'): Promise<IDBObjectStore> {
     const db = await this.openDB();
     const transaction = db.transaction([storeName], mode);
@@ -92,6 +124,13 @@ class IndexedDBStorage {
   }
 
   // MIDI Logs CRUD
+  
+  /**
+   * Stores a new MIDI log entry.
+   * 
+   * @param log The MIDI log data (without ID).
+   * @returns The generated ID of the new log entry.
+   */
   async createMidiLog(log: Omit<MidiLogEntry, 'id'>): Promise<string> {
     const id = `midi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const logEntry: MidiLogEntry = { ...log, id };
@@ -106,6 +145,12 @@ class IndexedDBStorage {
     return id;
   }
 
+  /**
+   * Retrieves a paginated list of MIDI logs.
+   * 
+   * @param limit The maximum number of logs to return.
+   * @param offset The starting offset.
+   */
   async getMidiLogs(limit = 100, offset = 0): Promise<MidiLogEntry[]> {
     const store = await this.getStore(STORES.MIDI_LOGS);
     return new Promise((resolve, reject) => {
@@ -118,6 +163,12 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Retrieves MIDI logs for a specific user.
+   * 
+   * @param userId The ID of the user to filter logs by.
+   * @returns A promise resolving to an array of MIDI log entries.
+   */
   async getMidiLogsByUser(userId: string): Promise<MidiLogEntry[]> {
     const store = await this.getStore(STORES.MIDI_LOGS);
     return new Promise((resolve, reject) => {
@@ -128,6 +179,13 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Updates an existing MIDI log entry.
+   * 
+   * @param id The ID of the log entry to update.
+   * @param updates Partial log entry data to apply.
+   * @returns A promise that resolves when the update is complete.
+   */
   async updateMidiLog(id: string, updates: Partial<MidiLogEntry>): Promise<void> {
     const store = await this.getStore(STORES.MIDI_LOGS, 'readwrite');
     return new Promise<void>((resolve, reject) => {
@@ -147,6 +205,12 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Deletes a MIDI log entry.
+   * 
+   * @param id The ID of the log entry to delete.
+   * @returns A promise that resolves when the deletion is complete.
+   */
   async deleteMidiLog(id: string): Promise<void> {
     const store = await this.getStore(STORES.MIDI_LOGS, 'readwrite');
     await new Promise<void>((resolve, reject) => {
@@ -157,6 +221,13 @@ class IndexedDBStorage {
   }
 
   // Chat History CRUD
+  
+  /**
+   * Stores a new chat message.
+   * 
+   * @param message The chat message data (without ID).
+   * @returns The generated ID of the new message.
+   */
   async createChatMessage(message: Omit<ChatMessage, 'id'>): Promise<string> {
     const id = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const chatMessage: ChatMessage = { ...message, id };
@@ -171,6 +242,12 @@ class IndexedDBStorage {
     return id;
   }
 
+  /**
+   * Retrieves chat history with pagination, sorted by timestamp descending.
+   * 
+   * @param limit The maximum number of messages to return.
+   * @param offset The starting offset.
+   */
   async getChatHistory(limit = 100, offset = 0): Promise<ChatMessage[]> {
     const store = await this.getStore(STORES.CHAT_HISTORY);
     return new Promise((resolve, reject) => {
@@ -185,6 +262,12 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Retrieves chat history for a specific user.
+   * 
+   * @param userId The ID of the user to retrieve messages for.
+   * @returns A promise resolving to an array of chat messages.
+   */
   async getChatHistoryByUser(userId: string): Promise<ChatMessage[]> {
     const store = await this.getStore(STORES.CHAT_HISTORY);
     return new Promise((resolve, reject) => {
@@ -195,6 +278,13 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Updates an existing chat message.
+   * 
+   * @param id The ID of the message to update.
+   * @param updates Partial message data to apply.
+   * @returns A promise that resolves when the update is complete.
+   */
   async updateChatMessage(id: string, updates: Partial<ChatMessage>): Promise<void> {
     const store = await this.getStore(STORES.CHAT_HISTORY, 'readwrite');
     return new Promise<void>((resolve, reject) => {
@@ -214,6 +304,12 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Deletes a chat message.
+   * 
+   * @param id The ID of the message to delete.
+   * @returns A promise that resolves when the deletion is complete.
+   */
   async deleteChatMessage(id: string): Promise<void> {
     const store = await this.getStore(STORES.CHAT_HISTORY, 'readwrite');
     await new Promise<void>((resolve, reject) => {
@@ -224,6 +320,13 @@ class IndexedDBStorage {
   }
 
   // Shared Files CRUD
+  
+  /**
+   * Stores metadata for a shared file.
+   * 
+   * @param file The file metadata (without ID).
+   * @returns The generated ID of the file entry.
+   */
   async createSharedFile(file: Omit<FileMetadata, 'id'>): Promise<string> {
     const id = `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const fileEntry: FileMetadata = { ...file, id };
@@ -238,6 +341,9 @@ class IndexedDBStorage {
     return id;
   }
 
+  /**
+   * Retrieves a list of shared files, sorted by newest first.
+   */
   async getSharedFiles(limit = 50, offset = 0): Promise<FileMetadata[]> {
     const store = await this.getStore(STORES.SHARED_FILES);
     return new Promise((resolve, reject) => {
@@ -252,6 +358,12 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Retrieves a single shared file by ID.
+   * 
+   * @param id The ID of the file to retrieve.
+   * @returns A promise resolving to the file metadata or null if not found.
+   */
   async getSharedFileById(id: string): Promise<FileMetadata | null> {
     const store = await this.getStore(STORES.SHARED_FILES);
     return new Promise((resolve, reject) => {
@@ -261,6 +373,13 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Updates an existing shared file's metadata.
+   * 
+   * @param id The ID of the file to update.
+   * @param updates Partial file metadata to apply.
+   * @returns A promise that resolves when the update is complete.
+   */
   async updateSharedFile(id: string, updates: Partial<FileMetadata>): Promise<void> {
     const store = await this.getStore(STORES.SHARED_FILES, 'readwrite');
     return new Promise<void>((resolve, reject) => {
@@ -280,6 +399,12 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Deletes a shared file entry.
+   * 
+   * @param id The ID of the file to delete.
+   * @returns A promise that resolves when the deletion is complete.
+   */
   async deleteSharedFile(id: string): Promise<void> {
     const store = await this.getStore(STORES.SHARED_FILES, 'readwrite');
     await new Promise<void>((resolve, reject) => {
@@ -290,6 +415,12 @@ class IndexedDBStorage {
   }
 
   // Offline Queue Operations
+  
+  /**
+   * Queues an operation to be performed later (when back online).
+   * 
+   * @param operation The offline operation details.
+   */
   async queueOfflineOperation(operation: OfflineOperation): Promise<void> {
     const store = await this.getStore(STORES.OFFLINE_QUEUE, 'readwrite');
     await new Promise<void>((resolve, reject) => {
@@ -299,6 +430,9 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Retrieves all queued offline operations, sorted by oldest first.
+   */
   async getOfflineOperations(): Promise<OfflineOperation[]> {
     const store = await this.getStore(STORES.OFFLINE_QUEUE);
     return new Promise((resolve, reject) => {
@@ -313,6 +447,12 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Removes an operation from the offline queue.
+   * 
+   * @param id The ID of the offline operation to remove.
+   * @returns A promise that resolves when the removal is complete.
+   */
   async removeOfflineOperation(id: string): Promise<void> {
     const store = await this.getStore(STORES.OFFLINE_QUEUE, 'readwrite');
     await new Promise<void>((resolve, reject) => {
@@ -323,6 +463,13 @@ class IndexedDBStorage {
   }
 
   // File Chunk CRUD
+  
+  /**
+   * Stores a binary chunk of a file.
+   * 
+   * @param chunk The file chunk data.
+   * @returns The generated ID of the chunk entry.
+   */
   async storeFileChunk(chunk: FileChunk): Promise<string> {
     const id = `chunk_${chunk.fileId}_${chunk.chunkIndex}`;
     const storedChunk: StoredFileChunk = { ...chunk, id };
@@ -337,6 +484,11 @@ class IndexedDBStorage {
     return id;
   }
 
+  /**
+   * Retrieves all chunks for a specific file.
+   * 
+   * @param fileId The ID of the file.
+   */
   async getFileChunks(fileId: string): Promise<FileChunk[]> {
     const store = await this.getStore(STORES.FILE_CHUNKS);
     return new Promise((resolve, reject) => {
@@ -347,6 +499,12 @@ class IndexedDBStorage {
     });
   }
 
+  /**
+   * Deletes all file chunks for a given file.
+   * 
+   * @param fileId The ID of the file to delete chunks for.
+   * @returns A promise that resolves when all chunks are deleted.
+   */
   async deleteFileChunks(fileId: string): Promise<void> {
     const store = await this.getStore(STORES.FILE_CHUNKS, 'readwrite');
     const chunks = await this.getFileChunks(fileId);
@@ -361,6 +519,11 @@ class IndexedDBStorage {
   }
 
   // Utility methods
+  
+  /**
+   * Clears all data from all object stores.
+   * Used for resetting the application state.
+   */
   async clearAllData(): Promise<void> {
     const db = await this.openDB();
     const stores = [STORES.MIDI_LOGS, STORES.CHAT_HISTORY, STORES.SHARED_FILES, STORES.FILE_CHUNKS, STORES.OFFLINE_QUEUE];
@@ -376,6 +539,9 @@ class IndexedDBStorage {
     }
   }
 
+  /**
+   * Closes the database connection.
+   */
   async close(): Promise<void> {
     if (this.db) {
       this.db.close();
@@ -388,7 +554,11 @@ class IndexedDBStorage {
 // Singleton instance
 export const storage = new IndexedDBStorage();
 
-// Helper function to check if IndexedDB is available
+/**
+ * Checks if IndexedDB is available in the current environment.
+ * 
+ * @returns True if IndexedDB is supported, false otherwise.
+ */
 export function isIndexedDBAvailable(): boolean {
   return typeof window !== 'undefined' &&
          typeof window.indexedDB !== 'undefined';

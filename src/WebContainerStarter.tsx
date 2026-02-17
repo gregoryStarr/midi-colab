@@ -32,10 +32,19 @@ export const WebContainerStarter: React.FC<WebContainerStarterProps> = ({ script
 
   return (
     <div>
-      <button onClick={handleStart} disabled={isStarting || isStarted}>
-        {isStarting ? 'Starting...' : isStarted ? 'Started' : 'Start WebContainer'}
+      <button 
+        onClick={handleStart} 
+        disabled={isStarting || isStarted}
+        className={`px-8 py-3 rounded-xl font-bold transition shadow-lg
+            ${isStarted 
+                ? 'bg-green-500 text-black cursor-default' 
+                : 'bg-yellow-500 text-black hover:bg-yellow-400 hover:scale-105 active:scale-95 shadow-yellow-500/20'
+            }
+            ${isStarting ? 'opacity-70 cursor-wait' : ''}
+        `}
+      >
+        {isStarting ? 'Starting Engine...' : isStarted ? 'Engine Active' : 'Start Engine'}
       </button>
-      {isStarted && <p>WebContainer is running</p>}
     </div>
   );
 };

@@ -4,6 +4,14 @@ import type { User, ContainerInput, ChatMessage, MidiLogEntry, FileMetadata } fr
 import type { WebContainerEngine } from './web-container-engine';
 import { storage, isIndexedDBAvailable } from './storage';
 
+/**
+ * Handles real-time synchronization and network communication.
+ * 
+ * The NetworkClient uses Yjs and y-websocket to synchronize state across
+ * connected clients. It manages presence, chat messages, shared files,
+ * and MIDI event broadcasting. It also implements an offline-first
+ * architecture using IndexedDB to queue operations when disconnected.
+ */
 export class NetworkClient {
   private provider: WebsocketProvider | null = null;
   private ydoc = new Y.Doc();
@@ -14,6 +22,11 @@ export class NetworkClient {
 
   constructor(public wsUrl: string, public engine?: WebContainerEngine) {}
 
+  /**
+   * Connects to the WebSocket server and initializes the synchronization provider.
+   * Sets up connection status listeners and triggers the processing of the offline queue
+   * upon successful connection.
+   */
   async connect() {
     if (this.provider) return;
     this.provider = new WebsocketProvider(this.wsUrl, 'midi-collab-room', this.ydoc);
@@ -28,21 +41,34 @@ export class NetworkClient {
     });
   }
 
+  /**
+   * Disconnects from the WebSocket server and destroys the provider.
+   */
   disconnect() {
     this.isOnline = false;
     this.provider?.destroy();
     this.provider = null;
   }
 
+  /**
+   * Returns the underlying Yjs WebsocketProvider instance.
+   */
   getProvider() {
     return this.provider;
   }
 
+  /**
+   * Subscribes to remote MIDI events.
+   * Monitors the Yjs awareness state for changes in 'currentMidi' from other clients.
+   * 
+   * @param callback Function to execute when a remote MIDI event is received.
+   * @returns A cleanup function to unsubscribe.
+   */
   onMidiEvent(callback: (midiData: any, clientId: number) => void) {
     if (!this.provider) return () => {};
 
     const awareness = this.provider.awareness;
-    const handler = (changes: any) => {
+    const handler = (_changes: any) => {
       const states = awareness.getStates();
       states.forEach((state: any, clientId: number) => {
         if (state && state.currentMidi && clientId !== awareness.clientID) {
@@ -55,12 +81,20 @@ export class NetworkClient {
     return () => awareness.off('change', handler);
   }
 
+  /**
+   * Updates the local user's presence state in the awareness protocol.
+   * 
+   * @param user The user object to set as the local state.
+   */
   setLocalUser(user: User) {
     if (this.provider) {
       this.provider.awareness.setLocalState(user);
     }
   }
 
+  /**
+   * Retrieves a list of all currently online users from the awareness state.
+   */
   getOnlineUsers(): User[] {
     if (!this.provider) return [];
     return Array.from(this.provider.awareness.getStates().values()).filter((state): state is User => 
@@ -68,6 +102,12 @@ export class NetworkClient {
     ) as User[];
   }
 
+  /**
+   * Subscribes to changes in the list of online users.
+   * 
+   * @param cb Callback function to execute when presence changes.
+   * @returns A cleanup function to unsubscribe.
+   */
   onPresenceChange(cb: (users: User[]) => void) {
     if (!this.provider) return;
     const update = () => cb(this.getOnlineUsers());
@@ -76,6 +116,12 @@ export class NetworkClient {
     return () => this.provider!.awareness.off('change', update);
   }
 
+  /**
+   * Broadcasts raw MIDI input to other clients.
+   * Uses a Yjs map with short-lived keys to emit events.
+   * 
+   * @param input The container input to broadcast.
+   */
   broadcastRaw(input: ContainerInput) {
     if (this.provider) {
       // Use Yjs map for reliable cross-tab broadcasting
@@ -90,6 +136,12 @@ export class NetworkClient {
     }
   }
 
+  /**
+   * Processes input via the WebContainerEngine and then broadcasts the result.
+   * 
+   * @param input The container input to process.
+   * @throws Error if the engine is not initialized.
+   */
   async broadcastProcessed(input: ContainerInput) {
     if (!this.engine) throw new Error('Engine required for processing');
     const output = await this.engine.process(input);
@@ -97,10 +149,18 @@ export class NetworkClient {
     return output;
   }
 
+  /**
+   * Returns the shared 'broadcast' map from the Yjs document.
+   */
   getLogs() {
     return this.ydoc.getMap('broadcast');
   }
 
+  /**
+   * Pipes input directly to the WebContainerEngine without broadcasting.
+   * 
+   * @param input The container input to process.
+   */
   pipeToContainer(input: ContainerInput) {
     if (this.engine) {
       return this.engine.process(input);
@@ -108,6 +168,12 @@ export class NetworkClient {
     return Promise.resolve({} as any);
   }
 
+  /**
+   * Sends a chat message.
+   * Appends the message to the shared 'messages' array.
+   * 
+   * @param message The content of the message.
+   */
   sendMessage(message: string) {
     const user = this.provider?.awareness.getLocalState() as User;
     if (user) {
@@ -123,6 +189,12 @@ export class NetworkClient {
     }
   }
 
+  /**
+   * Subscribes to updates in the chat message history.
+   * 
+   * @param cb Callback function to execute when messages change.
+   * @returns A cleanup function to unsubscribe.
+   */
   onMessage(cb: (messages: ChatMessage[]) => void) {
     const update = () => cb(this.messages.toArray() as ChatMessage[]);
     this.messages.observe(update);
@@ -130,10 +202,22 @@ export class NetworkClient {
     return () => this.messages.unobserve(update);
   }
 
+  /**
+   * Shares file metadata with other clients.
+   * Updates the shared 'files' map.
+   * 
+   * @param metadata The metadata of the file to share.
+   */
   shareFile(metadata: FileMetadata) {
     this.fileMetadata.set(metadata.id, metadata);
   }
 
+  /**
+   * Subscribes to updates in the shared file list.
+   * 
+   * @param cb Callback function to execute when shared files change.
+   * @returns A cleanup function to unsubscribe.
+   */
   onFileShared(cb: (files: Map<string, FileMetadata>) => void) {
     const update = () => cb(new Map(Array.from(this.fileMetadata.entries()) as [string, FileMetadata][]));
     this.fileMetadata.observe(update);
@@ -142,6 +226,11 @@ export class NetworkClient {
   }
 
   // Offline-first methods
+  
+  /**
+   * Processes queued offline operations by attempting to sync them with the server.
+   * This is called when the client comes back online.
+   */
   private async processOfflineQueue() {
     if (!isIndexedDBAvailable()) return;
 
@@ -251,6 +340,14 @@ export class NetworkClient {
   }
 
   // Enhanced methods that work offline-first
+  
+  /**
+   * Sends a chat message with offline support.
+   * If online, behaves like `sendMessage`.
+   * If offline, stores the message locally and queues it for sync.
+   * 
+   * @param message The content of the message.
+   */
   async sendMessageOfflineFirst(message: string) {
     const user = this.provider?.awareness.getLocalState() as User;
     if (!user) return;
@@ -276,6 +373,11 @@ export class NetworkClient {
     }
   }
 
+  /**
+   * Logs a MIDI event with offline support.
+   * 
+   * @param event The MIDI log entry to record.
+   */
   async logMidiEventOfflineFirst(event: MidiLogEntry) {
     if (this.isOnline) {
       this.logs.push([event]);
@@ -289,6 +391,11 @@ export class NetworkClient {
     }
   }
 
+  /**
+   * Shares a file via metadata with offline support.
+   * 
+   * @param metadata The file metadata.
+   */
   async shareFileOfflineFirst(metadata: FileMetadata) {
     if (this.isOnline) {
       this.fileMetadata.set(metadata.id, metadata);
