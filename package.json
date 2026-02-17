@@ -1,7 +1,7 @@
 {
   "name": "midi-colab",
   "version": "0.1.0",
-  "description": "Modular MIDI Collaboration Library",
+  "description": "Modular MIDI Collaboration Library ",
   "main": "dist/midi-colab.umd.js",
   "types": "dist/index.d.ts",
   "module": "dist/midi-colab.es.js",
