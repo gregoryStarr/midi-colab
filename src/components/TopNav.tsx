@@ -1,12 +1,19 @@
-import React from 'react';
-
 interface TopNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
 }
 
 export function TopNav({ activeTab, onTabChange }: TopNavProps) {
-  const tabs = ['All', 'Producers', 'Vocalists', 'Artists', 'Industry', 'Technology', 'Reviews', 'DJs'];
+  const tabs = [
+    "All",
+    "Producers",
+    "Vocalists",
+    "Artists",
+    "Industry",
+    "Technology",
+    "Reviews",
+    "DJs",
+  ];
 
   return (
     <div className="flex justify-between items-center mb-6 px-2">
@@ -17,8 +24,8 @@ export function TopNav({ activeTab, onTabChange }: TopNavProps) {
             onClick={() => onTabChange(item)}
             className={`transition-colors whitespace-nowrap ${
               activeTab === item
-                ? 'text-black bg-yellow-500 px-4 py-1.5 rounded-full font-bold'
-                : 'text-gray-400 hover:text-white px-2 py-1.5'
+                ? "text-black bg-yellow-500 px-4 py-1.5 rounded-full font-bold"
+                : "text-gray-400 hover:text-white px-2 py-1.5"
             }`}
           >
             {item}

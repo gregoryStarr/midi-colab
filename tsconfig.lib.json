@@ -8,5 +8,5 @@
     "allowImportingTsExtensions": false
   },
   "include": ["src/lib/**/*"],
-  "exclude": ["src/lib/midi-colab/web-container-worker.ts"]
+  "exclude": ["src/lib/midi-colab/web-container-worker.ts", "**/*.test.ts"]
 }
